@@ -1,0 +1,50 @@
+# ============================================================
+# Root .gitignore — covers both client/ and server/
+# ============================================================
+
+# ----- Python (server/) -----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment secrets — NEVER commit real .env files
+server/.env
+.env
+
+# Model cache (can be very large)
+server/.cache/
+server/models/
+
+# ----- Node / React (client/) -----
+client/node_modules/
+client/dist/
+client/.next/
+client/out/
+
+# ----- OS / Editor -----
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# ----- Docker -----
+*.tar

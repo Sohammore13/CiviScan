@@ -1,0 +1,8 @@
+{
+  "total": 100,
+  "counts": {
+    "Safe": 78,
+    "Toxic": 15,
+    "Cyberbullying": 7
+  }
+}

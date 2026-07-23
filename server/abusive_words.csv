@@ -1,0 +1,90 @@
+word,main_category,toxicity_level,harm_type
+chutiya,general,severe,general
+madarchod,general,severe,general
+bhenchod,general,severe,general
+randi,gender,severe,identity
+bhosdiwala,general,severe,general
+bhosdike,general,severe,general
+harami,general,high,general
+kutta,general,high,general
+saala,general,high,general
+lund,general,severe,general
+gand,general,high,general
+gaandu,general,severe,general
+lavda,general,severe,general
+jhaatu,general,high,general
+chut,general,severe,general
+bhen ke lode,general,severe,general
+madarchod ke aulaad,general,severe,general
+randi ka bacha,gender,severe,identity
+bhadwa,general,severe,general
+chodu,general,high,general
+gandu,general,severe,general
+bakchod,general,high,general
+kamina,general,high,general
+kuttiya,gender,severe,identity
+bhadve,general,severe,general
+chutmarika,general,severe,general
+lauda,general,severe,general
+lodu,general,severe,general
+hijra,general,high,identity
+gadha,general,high,general
+teri maa ki chut,general,severe,identity
+teri behen ki chut,gender,severe,identity
+betichod,gender,severe,identity
+bakrichod,general,severe,general
+gaand mar,general,high,general
+chinaal,gender,severe,identity
+dalal,general,high,general
+chut ke dhakkan,general,severe,general
+bhosad chod,general,severe,general
+saali,gender,high,identity
+ullu ka pattha,general,high,general
+kamine,general,high,general
+suwar chod,general,severe,general
+maa chod dunga,general,severe,identity
+bhosdi,general,severe,general
+bsdk,general,severe,general
+mc,general,severe,general
+bc,general,severe,general
+nalla,general,high,general
+haram ka pilla,general,high,general
+jhaantu,general,high,general
+chutiyaapanti,general,high,general
+chudai,general,high,general
+gaand ka baal,general,high,general
+chipkali ke jhaat,general,high,general
+rundi,gender,severe,identity
+chootad,general,high,general
+fattu,general,high,general
+klpd,general,high,general
+tatte,general,high,general
+mutthal,general,high,general
+randwa,general,severe,identity
+aand,general,high,general
+bhadkhau,general,high,general
+chunni,general,high,general
+ghasti,gender,severe,identity
+katla,general,high,general
+pucchi,general,high,general
+toto,general,high,general
+bevda,general,high,general
+chut ke gulam,general,severe,general
+chut ka pujari,general,severe,general
+lundoos,general,high,general
+khatmal,general,high,general
+moot,general,high,general
+najayaz,general,high,general
+bubbe,general,high,general
+bur,general,high,general
+chooche,general,high,general
+chodela,general,high,general
+gaand chaat,general,severe,general
+bhang bhosadu,general,severe,general
+chodumal,general,severe,general
+muth marna,general,high,general
+tatti,general,high,general
+gadha,general,high,general
+saala kutta,general,high,general
+kuttiya,general,severe,identity
+bandar,general,high,general

@@ -7,6 +7,7 @@ GET  /              — health check
 GET  /health        — detailed health check
 POST /predict       — single text inference
 POST /predict-batch — batched inference (single model forward pass)
+POST /youtube/analyze — fetch YouTube video comments + run toxicity detection (see routers/youtube.py)
 
 Model: Sohammore13/cyberbullying-detector (HuggingFace Hub)
 Keyword override: abusive_words.csv (word, main_category, toxicity_level, harm_type)
@@ -24,7 +25,6 @@ import torch
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel, Field
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
@@ -43,11 +43,6 @@ logger = logging.getLogger(__name__)
 
 MODEL_NAME: str = os.getenv("MODEL_NAME", "Sohammore13/cyberbullying-detector")
 KEYWORDS_CSV: str = os.getenv("KEYWORDS_CSV", "./abusive_words.csv")
-
-# Session secret — used to sign the server-side cookie that stores the
-# Instagram access token.  MUST be set to a real secret in production.
-# If missing, a random value is used (sessions lost on every restart).
-SESSION_SECRET_KEY: str = os.getenv("SESSION_SECRET_KEY", os.urandom(32).hex())
 
 # Canonical label set — must match the model's id2label ordering
 LABELS = [
@@ -143,17 +138,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# SessionMiddleware must be added BEFORE CORSMiddleware so the session is
-# available to all routes, including the OAuth callback.
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SESSION_SECRET_KEY,
-    session_cookie="ig_session",
-    max_age=60 * 60 * 24 * 60,  # 60 days — matches Instagram long-lived token TTL
-    https_only=False,           # set True in production (HTTPS only)
-    same_site="lax",            # prevents most CSRF while allowing OAuth redirect
-)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],   # tighten to your Vercel domain in production
@@ -166,8 +150,8 @@ app.add_middleware(
 # Routers
 # ---------------------------------------------------------------------------
 
-from routers.instagram import router as instagram_router  # noqa: E402
-app.include_router(instagram_router)
+from routers.youtube import router as youtube_router  # noqa: E402
+app.include_router(youtube_router)
 
 
 # ---------------------------------------------------------------------------

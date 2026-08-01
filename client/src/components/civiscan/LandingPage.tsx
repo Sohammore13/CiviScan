@@ -1,4 +1,4 @@
-import { Shield, Search, Flame, ShieldAlert, Smile, Brain, SlidersHorizontal, Link, ListTodo, Cpu, BarChart3, Mail, MapPin, MessageSquare, AlertTriangle, Skull, X, CheckCircle2 } from "lucide-react";
+import { Shield, Search, Flame, ShieldAlert, Smile, Brain, SlidersHorizontal, Link, ListTodo, Cpu, BarChart3, Mail, MapPin, MessageSquare, AlertTriangle, Skull, X, CheckCircle2, Loader2 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -59,68 +59,36 @@ const FEATURES_DATA = [
   },
 ];
 
-const MOCK_COMMENTS = [
-  {
-    id: 1,
-    text: "You are worthless and everyone hates you.",
-    user: "@JustanotherUser",
-    likes: 35,
-    classification: "Cyberbullying",
-    toxicity: 99,
-  },
-  {
-    id: 2,
-    text: "This is absolute trash, what a waste of time.",
-    user: "@Sara L.",
-    likes: 9,
-    classification: "Toxic",
-    toxicity: 95,
-  },
-  {
-    id: 3,
-    text: "This is absolute trash, what a waste of time.",
-    user: "@frostbyte",
-    likes: 231,
-    classification: "Toxic",
-    toxicity: 94,
-  },
-  {
-    id: 4,
-    text: "This is absolute trash, what a waste of time.",
-    user: "@Sara L.",
-    likes: 78,
-    classification: "Toxic",
-    toxicity: 93,
-  },
-  {
-    id: 5,
-    text: "Great video explanation! Really helped clear up the setup steps.",
-    user: "@DevDave",
-    likes: 42,
-    classification: "Safe",
-    toxicity: 4,
-  },
-  {
-    id: 6,
-    text: "Shut up, you have no idea what you are talking about.",
-    user: "@anon992",
-    likes: 12,
-    classification: "Offensive",
-    toxicity: 88,
-  },
-];
+interface CommentResult {
+  comment: string;
+  author: string;
+  published_at: string;
+  prediction: string;
+  confidence: number;
+}
 
-const METRICS = [
-  { label: "Total Comments", value: 118, icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
-  { label: "Safe Comments", value: 74, icon: Shield, color: "text-emerald-500", bg: "bg-emerald-50" },
-  { label: "Toxic Comments", value: 20, icon: Flame, color: "text-rose-500", bg: "bg-rose-50" },
-  { label: "Offensive Comments", value: 16, icon: AlertTriangle, color: "text-amber-500", bg: "bg-amber-50" },
-  { label: "Cyberbullying", value: 8, icon: Skull, color: "text-purple-500", bg: "bg-purple-50" },
-];
+interface AnalysisResponse {
+  video_title: string;
+  channel_title: string;
+  total_comments: number;
+  results: CommentResult[];
+}
+
+const getCategory = (prediction: string, confidence: number) => {
+  if (prediction === "not_cyberbullying") return "Safe";
+  if (prediction === "other_cyberbullying") return "Toxic";
+  if (["age", "ethnicity", "gender", "religion"].includes(prediction)) return "Cyberbullying";
+  if (confidence > 0.5) return "Offensive";
+  return "Safe";
+};
 
 export default function LandingPage() {
   const [videoUrl, setVideoUrl] = useState("");
   const [showDashboard, setShowDashboard] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [analysisData, setAnalysisData] = useState<AnalysisResponse | null>(null);
+
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
@@ -140,26 +108,109 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleAnalyze = (e: React.FormEvent) => {
+  const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (videoUrl.trim() !== "") {
+    if (videoUrl.trim() === "") return;
+
+    setIsLoading(true);
+    setError(null);
+    setShowDashboard(false);
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/youtube/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url: videoUrl.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to analyze video. Please check the URL and ensure the API is running.");
+      }
+
+      const data: AnalysisResponse = await response.json();
+      setAnalysisData(data);
       setShowDashboard(true);
+      
       setTimeout(() => {
         const element = document.getElementById("insights-panel");
         if (element) {
           element.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }, 100);
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const processedComments = useMemo(() => {
+    if (!analysisData) return [];
+    return analysisData.results.map((r, i) => ({
+      id: i,
+      text: r.comment,
+      user: r.author,
+      likes: 0, // Not provided by the current API response
+      classification: getCategory(r.prediction, r.confidence),
+      toxicity: Math.round(r.confidence * 100),
+    }));
+  }, [analysisData]);
+
+  const metrics = useMemo(() => {
+    if (!processedComments.length) return [];
+    
+    let safe = 0, toxic = 0, offensive = 0, cyberbullying = 0;
+    for (const c of processedComments) {
+      if (c.classification === "Safe") safe++;
+      else if (c.classification === "Toxic") toxic++;
+      else if (c.classification === "Offensive") offensive++;
+      else if (c.classification === "Cyberbullying") cyberbullying++;
+    }
+
+    return [
+      { label: "Total Comments", value: processedComments.length, icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50" },
+      { label: "Safe Comments", value: safe, icon: Shield, color: "text-emerald-500", bg: "bg-emerald-50" },
+      { label: "Toxic Comments", value: toxic, icon: Flame, color: "text-rose-500", bg: "bg-rose-50" },
+      { label: "Offensive Comments", value: offensive, icon: AlertTriangle, color: "text-amber-500", bg: "bg-amber-50" },
+      { label: "Cyberbullying", value: cyberbullying, icon: Skull, color: "text-purple-500", bg: "bg-purple-50" },
+    ];
+  }, [processedComments]);
+
+  const percentages = useMemo(() => {
+    if (!processedComments.length) return { safe: 0, toxic: 0, offensive: 0, cyberbullying: 0, safeCount: 0, toxicCount: 0, offensiveCount: 0, cyberbullyingCount: 0 };
+    const total = processedComments.length;
+    let safe = 0, toxic = 0, offensive = 0, cyberbullying = 0;
+    for (const c of processedComments) {
+      if (c.classification === "Safe") safe++;
+      else if (c.classification === "Toxic") toxic++;
+      else if (c.classification === "Offensive") offensive++;
+      else if (c.classification === "Cyberbullying") cyberbullying++;
+    }
+    return {
+      safe: Math.round((safe / total) * 100),
+      toxic: Math.round((toxic / total) * 100),
+      offensive: Math.round((offensive / total) * 100),
+      cyberbullying: Math.round((cyberbullying / total) * 100),
+      safeCount: safe,
+      toxicCount: toxic,
+      offensiveCount: offensive,
+      cyberbullyingCount: cyberbullying,
+    };
+  }, [processedComments]);
+
+  const cyberOffset = -percentages.safe;
+  const offensiveOffset = cyberOffset - percentages.cyberbullying;
+  const toxicOffset = offensiveOffset - percentages.offensive;
+
   const filteredComments = useMemo(() => {
-    return MOCK_COMMENTS.filter((c) => {
+    return processedComments.filter((c) => {
       const matchesFilter = activeFilter === "All" || c.classification === activeFilter;
       const matchesSearch = c.text.toLowerCase().includes(searchQuery.toLowerCase()) || c.user.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesFilter && matchesSearch;
     });
-  }, [activeFilter, searchQuery]);
+  }, [activeFilter, searchQuery, processedComments]);
 
   const getBadgeStyles = (category: string) => {
     switch (category) {
@@ -250,10 +301,16 @@ export default function LandingPage() {
                       className="flex-1 outline-none bg-transparent text-gray-900 placeholder-gray-400 text-sm md:text-base"
                     />
                   </div>
-                  <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-full font-semibold transition text-sm md:text-base whitespace-nowrap">
-                    Analyze Comments
+                  <button disabled={isLoading} type="submit" className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-75 text-white px-6 py-3 rounded-full font-semibold transition text-sm md:text-base whitespace-nowrap flex items-center justify-center gap-2">
+                    {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {isLoading ? "Analyzing..." : "Analyze Comments"}
                   </button>
                 </div>
+                {error && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm text-left">
+                    {error}
+                  </div>
+                )}
                 <p className="text-sm text-gray-500 text-left">
                   Try any public YouTube link – e.g. youtube.com/watch?v=dQw4w9WgXcQ
                 </p>
@@ -281,9 +338,9 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* --- SECTION 2: LIVE INLINE DASHBOARD (HEADER REMOVED PER image_9355c2.png) --- */}
+        {/* --- SECTION 2: LIVE INLINE DASHBOARD --- */}
         <AnimatePresence>
-          {showDashboard && (
+          {showDashboard && analysisData && (
             <motion.div
               id="insights-panel"
               initial={{ opacity: 0, height: 0 }}
@@ -302,9 +359,13 @@ export default function LandingPage() {
                   className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 flex flex-col sm:flex-row gap-6 items-start sm:items-center text-left"
                 >
                   <div className="w-full sm:w-56 aspect-video bg-slate-100 rounded-2xl overflow-hidden relative border border-slate-100 flex-shrink-0">
+                    {/* Assuming we can construct a thumbnail URL from video ID if available, but for now we keep a generic one or empty */}
                     <img 
-                      src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80" 
+                      src={`https://img.youtube.com/vi/${new URL(videoUrl).searchParams.get('v') || videoUrl.split('/').pop()?.split('?')[0]}/maxresdefault.jpg`}
                       alt="YouTube Video Thumbnail Preview" 
+                      onError={(e) => {
+                        e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&q=80";
+                      }}
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/5"></div>
@@ -316,18 +377,18 @@ export default function LandingPage() {
                       Analysis complete
                     </div>
                     <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight">
-                      10 Productivity Hacks That Actually Work
+                      {analysisData.video_title || "YouTube Video"}
                     </h3>
                     <div className="text-xs sm:text-sm space-y-0.5">
-                      <p className="text-slate-400 font-bold">The Daily Byte</p>
-                      <p className="text-slate-500 font-medium">118 comments analyzed with AI</p>
+                      <p className="text-slate-400 font-bold">{analysisData.channel_title || "Unknown Channel"}</p>
+                      <p className="text-slate-500 font-medium">{analysisData.total_comments} comments analyzed with AI</p>
                     </div>
                   </div>
                 </motion.div>
 
                 {/* Metric Counter Cards Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {METRICS.map((metric, idx) => {
+                  {metrics.map((metric, idx) => {
                     const Icon = metric.icon;
                     return (
                       <div key={idx} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col space-y-3 text-left">
@@ -358,61 +419,69 @@ export default function LandingPage() {
                         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                           <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="3.2" />
                           
-                          <motion.circle 
-                            cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="3.2" 
-                            initial={{ strokeDasharray: "0 100" }}
-                            whileInView={{ strokeDasharray: "62.7 100" }}
-                            viewport={{ once: false, amount: 0.1 }}
-                            whileHover={{ strokeWidth: 4.5 }}
-                            onMouseEnter={() => setHoveredSlice({ label: "Safe", value: 74 })}
-                            onMouseLeave={() => setHoveredSlice(null)}
-                            transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
-                            className="cursor-pointer origin-center"
-                            strokeDashoffset="0" 
-                          />
+                          {percentages.safe > 0 && (
+                            <motion.circle 
+                              cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="3.2" 
+                              initial={{ strokeDasharray: "0 100" }}
+                              whileInView={{ strokeDasharray: `${percentages.safe} 100` }}
+                              viewport={{ once: false, amount: 0.1 }}
+                              whileHover={{ strokeWidth: 4.5 }}
+                              onMouseEnter={() => setHoveredSlice({ label: "Safe", value: percentages.safeCount })}
+                              onMouseLeave={() => setHoveredSlice(null)}
+                              transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
+                              className="cursor-pointer origin-center"
+                              strokeDashoffset="0" 
+                            />
+                          )}
                           
-                          <motion.circle 
-                            cx="18" cy="18" r="15.915" fill="none" stroke="#a855f7" strokeWidth="3.2" 
-                            initial={{ strokeDasharray: "0 100" }}
-                            whileInView={{ strokeDasharray: "6.8 100" }}
-                            viewport={{ once: false, amount: 0.1 }}
-                            whileHover={{ strokeWidth: 4.5 }}
-                            onMouseEnter={() => setHoveredSlice({ label: "Cyberbullying", value: 8 })}
-                            onMouseLeave={() => setHoveredSlice(null)}
-                            transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
-                            className="cursor-pointer origin-center"
-                            strokeDashoffset="-62.7" 
-                          />
+                          {percentages.cyberbullying > 0 && (
+                            <motion.circle 
+                              cx="18" cy="18" r="15.915" fill="none" stroke="#a855f7" strokeWidth="3.2" 
+                              initial={{ strokeDasharray: "0 100" }}
+                              whileInView={{ strokeDasharray: `${percentages.cyberbullying} 100` }}
+                              viewport={{ once: false, amount: 0.1 }}
+                              whileHover={{ strokeWidth: 4.5 }}
+                              onMouseEnter={() => setHoveredSlice({ label: "Cyberbullying", value: percentages.cyberbullyingCount })}
+                              onMouseLeave={() => setHoveredSlice(null)}
+                              transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
+                              className="cursor-pointer origin-center"
+                              strokeDashoffset={cyberOffset} 
+                            />
+                          )}
                           
-                          <motion.circle 
-                            cx="18" cy="18" r="15.915" fill="none" stroke="#f59e0b" strokeWidth="3.2" 
-                            initial={{ strokeDasharray: "0 100" }}
-                            whileInView={{ strokeDasharray: "13.6 100" }}
-                            viewport={{ once: false, amount: 0.1 }}
-                            whileHover={{ strokeWidth: 4.5 }}
-                            onMouseEnter={() => setHoveredSlice({ label: "Offensive", value: 16 })}
-                            onMouseLeave={() => setHoveredSlice(null)}
-                            transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
-                            className="cursor-pointer origin-center"
-                            strokeDashoffset="-69.5" 
-                          />
+                          {percentages.offensive > 0 && (
+                            <motion.circle 
+                              cx="18" cy="18" r="15.915" fill="none" stroke="#f59e0b" strokeWidth="3.2" 
+                              initial={{ strokeDasharray: "0 100" }}
+                              whileInView={{ strokeDasharray: `${percentages.offensive} 100` }}
+                              viewport={{ once: false, amount: 0.1 }}
+                              whileHover={{ strokeWidth: 4.5 }}
+                              onMouseEnter={() => setHoveredSlice({ label: "Offensive", value: percentages.offensiveCount })}
+                              onMouseLeave={() => setHoveredSlice(null)}
+                              transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
+                              className="cursor-pointer origin-center"
+                              strokeDashoffset={offensiveOffset} 
+                            />
+                          )}
                           
-                          <motion.circle 
-                            cx="18" cy="18" r="15.915" fill="none" stroke="#ef4444" strokeWidth="3.2" 
-                            initial={{ strokeDasharray: "0 100" }}
-                            whileInView={{ strokeDasharray: "16.9 100" }}
-                            viewport={{ once: false, amount: 0.1 }}
-                            whileHover={{ strokeWidth: 4.5 }}
-                            onMouseEnter={() => setHoveredSlice({ label: "Toxic", value: 20 })}
-                            onMouseLeave={() => setHoveredSlice(null)}
-                            transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
-                            className="cursor-pointer origin-center"
-                            strokeDashoffset="-83.1" 
-                          />
+                          {percentages.toxic > 0 && (
+                            <motion.circle 
+                              cx="18" cy="18" r="15.915" fill="none" stroke="#ef4444" strokeWidth="3.2" 
+                              initial={{ strokeDasharray: "0 100" }}
+                              whileInView={{ strokeDasharray: `${percentages.toxic} 100` }}
+                              viewport={{ once: false, amount: 0.1 }}
+                              whileHover={{ strokeWidth: 4.5 }}
+                              onMouseEnter={() => setHoveredSlice({ label: "Toxic", value: percentages.toxicCount })}
+                              onMouseLeave={() => setHoveredSlice(null)}
+                              transition={{ duration: 1.4, ease: [0.25, 1, 0.5, 1] }}
+                              className="cursor-pointer origin-center"
+                              strokeDashoffset={toxicOffset} 
+                            />
+                          )}
                         </svg>
                         
                         <div className="absolute inset-0 flex flex-col justify-center items-center text-center select-none pointer-events-none">
-                          <span className="text-4xl font-black text-indigo-600 tracking-tighter">63%</span>
+                          <span className="text-4xl font-black text-indigo-600 tracking-tighter">{percentages.safe}%</span>
                           <p className="text-slate-400 font-bold text-xs uppercase tracking-wider">Safe</p>
                         </div>
 
@@ -453,7 +522,7 @@ export default function LandingPage() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
                         <h3 className="text-xl font-extrabold text-slate-955 tracking-tight">Comments Analysis</h3>
-                        <p className="text-slate-400 text-xs font-semibold mt-0.5">108 of 108 comments</p>
+                        <p className="text-slate-400 text-xs font-semibold mt-0.5">{filteredComments.length} of {processedComments.length} comments</p>
                       </div>
 
                       <div className="relative w-full sm:w-64">
@@ -505,7 +574,7 @@ export default function LandingPage() {
                                 <td className="py-4 pr-4">
                                   <p className="text-slate-900 font-medium leading-normal max-w-sm sm:max-w-md">{comment.text}</p>
                                   <span className="text-xs text-slate-400 block mt-1 font-medium">
-                                    {comment.user} · {comment.likes} likes
+                                    {comment.user}
                                   </span>
                                 </td>
                                 <td className="py-4 px-4 whitespace-nowrap">

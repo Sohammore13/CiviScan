@@ -180,6 +180,7 @@ async def analyze_video(request: YouTubeAnalyzeRequest) -> dict[str, Any]:
 
     return {
         "video_title": details["title"],
+        "channel_title": details.get("channel_title", ""),
         "total_comments": len(results),
         "results": results,
     }

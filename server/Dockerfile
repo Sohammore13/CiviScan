@@ -42,8 +42,7 @@ print("Done.")
 EOF
 
 # Copy application source
-COPY main.py .
-COPY abusive_words.csv .
+COPY . .
 
 # Ensure non-root user owns the files
 RUN chown -R appuser:appuser /app

@@ -1,12 +1,6 @@
-# CPU-only PyTorch (keeps image small — no CUDA drivers needed)
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.6.0+cpu
-torchvision==0.21.0+cpu
-
 # Core
 fastapi>=0.111.0
 uvicorn[standard]>=0.30.1
-transformers>=4.47.0
 pandas>=2.2.2
 python-dotenv>=1.0.1
 
@@ -26,3 +20,4 @@ google-auth-oauthlib>=1.2.0   # OAuth flow + token handling
 google-auth>=2.29.0            # Google auth core
 itsdangerous>=2.2.0            # secure session signing
 starlette>=0.37.0              # SessionMiddleware (bundled with FastAPI)
+gradio>=4.0.

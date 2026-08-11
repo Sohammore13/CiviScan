@@ -1,0 +1,7 @@
+{
+  "name": "civiscan-root",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix client run build"
+  }
+}

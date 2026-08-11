@@ -2,7 +2,7 @@
 
 # 🛡️ CiviScan
 
-### AI-Powered Cyberbullying Detection & YouTube Comment Analysis
+### Cyberbullying Detection & YouTube Comment Analysis
 
 Detect toxic, abusive, and cyberbullying content in YouTube comments using a fine-tuned Hugging Face model and the YouTube Data API v3.
 
@@ -20,7 +20,7 @@ Detect toxic, abusive, and cyberbullying content in YouTube comments using a fin
 
 # 📌 Overview
 
-CiviScan is an AI-powered web application that analyses YouTube comments for cyberbullying and toxic behaviour.
+CiviScan is a web application that analyses YouTube comments for cyberbullying and toxic behaviour.
 
 The platform combines:
 
@@ -42,7 +42,7 @@ The goal is to help users identify abusive behaviour and visualise toxicity tren
 - Fetch comments directly using YouTube Data API v3
 - Real-time prediction
 
-## 🤖 AI Detection
+## 🤖 Detection Engine
 
 Detects:
 
@@ -126,7 +126,7 @@ CiviScan
 
 - YouTube Data API v3
 
-## AI
+## Machine Learning & NLP
 
 - Hugging Face Fine-tuned Classification Model
 

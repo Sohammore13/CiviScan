@@ -20,3 +20,9 @@ pydantic>=2.10.0
 
 # YouTube Data API v3 integration
 httpx>=0.27.0          # async HTTP client for YouTube Data API calls
+
+# YouTube OAuth 2.0 — comment deletion as channel owner
+google-auth-oauthlib>=1.2.0   # OAuth flow + token handling
+google-auth>=2.29.0            # Google auth core
+itsdangerous>=2.2.0            # secure session signing
+starlette>=0.37.0              # SessionMiddleware (bundled with FastAPI)

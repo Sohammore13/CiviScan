@@ -10,12 +10,16 @@ YouTube Data API base: https://www.googleapis.com/youtube/v3
 """
 
 import re
+import json
+import asyncio
 import logging
 from typing import Any, Optional
 
 import httpx
+from google.oauth2.credentials import Credentials
 
 logger = logging.getLogger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -133,12 +137,11 @@ async def get_video_comments(
             data = resp.json()
 
             for item in data.get("items", []):
-                top_comment = (
-                    item.get("snippet", {})
-                    .get("topLevelComment", {})
-                    .get("snippet", {})
-                )
+                top_level = item.get("snippet", {}).get("topLevelComment", {})
+                top_comment = top_level.get("snippet", {})
+                comment_id = top_level.get("id", "")  # needed for deletion
                 comments.append({
+                    "comment_id": comment_id,
                     "text": top_comment.get("textDisplay", ""),
                     "author": top_comment.get("authorDisplayName", ""),
                     "published_at": top_comment.get("publishedAt", ""),
@@ -154,6 +157,51 @@ async def get_video_comments(
         "Fetched %d comments for video_id=%s.", len(comments), video_id
     )
     return comments
+
+
+# ---------------------------------------------------------------------------
+# Comment moderation (requires channel-owner OAuth token)
+# ---------------------------------------------------------------------------
+
+async def delete_comment(comment_id: str, creds: Credentials) -> None:
+    """
+    Permanently delete a comment using the authenticated channel owner's
+    OAuth credentials via the official Google API client library.
+
+    Uses googleapiclient.discovery.build() which handles OAuth token refresh,
+    correct header formatting, and API protocol details automatically.
+
+    The caller must ensure `creds` belongs to the video's channel owner;
+    otherwise the API returns 403 Forbidden.
+    """
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+
+    def _sync_delete() -> None:
+        youtube = build("youtube", "v3", credentials=creds)
+        # Using setModerationStatus with 'rejected' because comments.delete() only works
+        # on comments made by the authenticated user themselves. To delete other users'
+        # comments on your own videos, a channel owner must reject them.
+        youtube.comments().setModerationStatus(
+            id=comment_id,
+            moderationStatus="rejected",
+        ).execute()
+
+    logger.info("Attempting to delete comment id=%s", comment_id)
+    try:
+        await asyncio.to_thread(_sync_delete)
+    except HttpError as exc:
+        body = exc.reason or str(exc)
+        code = exc.status_code if hasattr(exc, "status_code") else exc.resp.status
+        logger.error(
+            "YouTube delete failed for comment=%s  status=%s: %s",
+            comment_id, code, body,
+        )
+        raise ValueError(f"YouTube Data API error {code}: {body}") from exc
+
+    logger.info("Successfully deleted comment id=%s.", comment_id)
+
+
 
 
 # ---------------------------------------------------------------------------

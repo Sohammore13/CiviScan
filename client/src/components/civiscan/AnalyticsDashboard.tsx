@@ -37,7 +37,7 @@ export function AnalyticsPie({ result }: { result: AnalysisResult }) {
     <div className="glass rounded-3xl p-6 shadow-[var(--shadow-soft)] sm:p-8">
       <h3 className="text-xl font-bold">Comment Classification</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Real-time AI breakdown across all analyzed comments
+        Real-time breakdown across all analyzed comments
       </p>
 
       <div className="relative mt-4 h-[320px]">

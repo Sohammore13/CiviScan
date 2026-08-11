@@ -43,7 +43,7 @@ function VideoCard({ result }: { result: DashboardResult }) {
         <p className="mt-1 text-sm text-muted-foreground">{result.video.channel}</p>
         <p className="mt-3 text-sm">
           <span className="font-bold text-foreground">{result.total}</span>{" "}
-          <span className="text-muted-foreground">comments analyzed with AI</span>
+          <span className="text-muted-foreground">comments analyzed</span>
         </p>
       </div>
     </div>
@@ -152,7 +152,7 @@ function InsightsPanel({ result }: { result: DashboardResult }) {
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-[image:var(--gradient-primary)]">
               <Bot className="h-4 w-4 text-primary-foreground" />
             </span>
-            AI Moderation Summary
+            Moderation Summary
           </div>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{result.summary}</p>
         </div>

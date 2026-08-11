@@ -27,6 +27,12 @@ ENV/
 server/.env
 .env
 
+# YouTube OAuth token — contains sensitive access/refresh tokens
+server/yt_token.json
+yt_token.json
+# PKCE temp file (auto-deleted after use, but just in case)
+server/yt_code_verifier.tmp
+
 # Model cache (can be very large)
 server/.cache/
 server/models/

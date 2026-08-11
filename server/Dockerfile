@@ -30,17 +30,6 @@ COPY requirements.txt .
 # The --extra-index-url for CPU torch is already in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download the HuggingFace model into the image at build time
-# This avoids cold-start delays on Spaces and works offline
-RUN python - <<'EOF'
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-model_name = "Sohammore13/cyberbullying-detector"
-print(f"Downloading {model_name} ...")
-AutoTokenizer.from_pretrained(model_name)
-AutoModelForSequenceClassification.from_pretrained(model_name)
-print("Done.")
-EOF
-
 # Copy application source
 COPY . .
 

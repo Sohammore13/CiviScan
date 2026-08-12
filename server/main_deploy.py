@@ -21,6 +21,7 @@ Model: Sohammore13/cyberbullying-detector (HuggingFace Hub)
 Keyword override: abusive_words.csv (word, main_category, toxicity_level, harm_type)
 """
 
+import asyncio
 import os
 import re
 import logging
@@ -108,22 +109,29 @@ async def lifespan(app: FastAPI):
         )
 
     # Warm-up: ping the model so HF loads it before first real request
-    try:
-        logger.info("Warming up HF Inference API model: %s", MODEL_NAME)
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
-            r = await client.post(
-                HF_INFERENCE_URL,
-                headers=headers,
-                json={"inputs": ["hello world"]},
-            )
-        if r.status_code in (200, 503):
-            # 503 = model loading, that's OK — it will be ready for real requests
-            logger.info("HF Inference API warm-up done (status=%d).", r.status_code)
-        else:
-            logger.warning("HF warm-up returned unexpected status=%d.", r.status_code)
-    except Exception as exc:
-        logger.warning("HF warm-up failed (non-fatal): %s", exc)
+    # Small delay so Render's container network is fully ready before DNS lookups
+    await asyncio.sleep(2)
+    for attempt in range(2):
+        try:
+            logger.info("Warming up HF Inference API model: %s (attempt %d)", MODEL_NAME, attempt + 1)
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
+                r = await client.post(
+                    HF_INFERENCE_URL,
+                    headers=headers,
+                    json={"inputs": ["hello world"]},
+                )
+            if r.status_code in (200, 503):
+                logger.info("HF Inference API warm-up done (status=%d).", r.status_code)
+            else:
+                logger.warning("HF warm-up returned unexpected status=%d.", r.status_code)
+            break  # success — exit retry loop
+        except Exception as exc:
+            if attempt == 0:
+                logger.info("HF warm-up attempt 1 failed (%s), retrying in 5s...", exc)
+                await asyncio.sleep(5)
+            else:
+                logger.warning("HF warm-up failed (non-fatal): %s", exc)
 
     # Load keyword CSV
     csv_path = Path(KEYWORDS_CSV)

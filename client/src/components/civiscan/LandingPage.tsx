@@ -399,7 +399,7 @@ export default function LandingPage() {
               </button>
             ) : (
               <a
-                href="http://127.0.0.1:8000/youtube/auth"
+                href={`${API_BASE}/youtube/auth`}
                 title="Connect your YouTube channel to enable comment deletion"
                 className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-full font-semibold text-xs transition duration-200"
               >

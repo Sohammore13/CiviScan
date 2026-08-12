@@ -39,12 +39,11 @@ RUN chown -R appuser:appuser /app
 
 USER appuser
 
-# Port (Render uses $PORT env var, default 7860)
+# Port (Render sets $PORT env var dynamically)
 EXPOSE 7860
 
 ENV MODEL_NAME="Sohammore13/cyberbullying-detector" \
-    KEYWORDS_CSV="./abusive_words.csv" \
-    PORT=7860
+    KEYWORDS_CSV="./abusive_words.csv"
 
-# Run the deployment version of the app
-CMD ["uvicorn", "main_deploy:app", "--host", "0.0.0.0", "--port", "7860"]
+# Run the deployment version of the app, binding dynamically to $PORT
+CMD sh -c "uvicorn main_deploy:app --host 0.0.0.0 --port ${PORT:-7860}"

@@ -196,7 +196,11 @@ async def analyze_video(request: YouTubeAnalyzeRequest) -> dict[str, Any]:
       with a toxicity_score of 0.0.
     """
     # Import here to avoid circular imports at module load time.
-    from main import run_inference_batch, clean_text, keyword_check, build_response
+    # Works for both local dev (main.py) and deployment (main_deploy.py).
+    try:
+        from main import run_inference_batch, clean_text, keyword_check, build_response
+    except ImportError:
+        from main_deploy import run_inference_batch, clean_text, keyword_check, build_response  # type: ignore
 
     if not YOUTUBE_API_KEY:
         raise HTTPException(
@@ -241,9 +245,14 @@ async def analyze_video(request: YouTubeAnalyzeRequest) -> dict[str, Any]:
     empty_indices = [i for i, t in enumerate(cleaned_texts) if not t]
 
     # 6. Batched inference on non-empty comments
+    # run_inference_batch is sync in main.py (local) and async in main_deploy.py
     non_empty_texts = [cleaned_texts[i] for i in non_empty_indices]
     if non_empty_texts:
-        model_results = run_inference_batch(non_empty_texts)
+        import inspect
+        if inspect.iscoroutinefunction(run_inference_batch):
+            model_results = await run_inference_batch(non_empty_texts)
+        else:
+            model_results = run_inference_batch(non_empty_texts)
     else:
         model_results = []
 

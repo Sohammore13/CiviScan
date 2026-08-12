@@ -102,7 +102,8 @@ export default function LandingPage() {
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  const API_BASE = ((import.meta as any).env?.VITE_API_URL) || "http://127.0.0.1:8000";
+  const rawApiBase = ((import.meta as any).env?.VITE_API_URL) || "http://127.0.0.1:8000";
+  const API_BASE = rawApiBase.replace(/\/+$/, "");
 
   const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });

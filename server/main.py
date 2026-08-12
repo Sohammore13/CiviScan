@@ -20,12 +20,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-import httpx
 import pandas as pd
+import torch
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # ---------------------------------------------------------------------------
 # Config
@@ -78,6 +79,8 @@ KEYWORD_HIT_MIN_SCORE = 0.90
 # Global state
 # ---------------------------------------------------------------------------
 
+_tokenizer: Optional[AutoTokenizer] = None
+_model: Optional[AutoModelForSequenceClassification] = None
 _keywords_df: Optional[pd.DataFrame] = None  # pre-processed keyword list
 
 
@@ -87,10 +90,15 @@ _keywords_df: Optional[pd.DataFrame] = None  # pre-processed keyword list
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _keywords_df
+    global _tokenizer, _model, _keywords_df
 
     # Load model from HuggingFace Hub
-    logger.info("Using Hugging Face Serverless Inference API for model: %s", MODEL_NAME)
+    logger.info("Loading tokenizer: %s", MODEL_NAME)
+    _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    logger.info("Loading model: %s", MODEL_NAME)
+    _model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
+    _model.eval()
+    logger.info("Model ready. id2label: %s", getattr(_model.config, "id2label", "N/A"))
 
     # Load keyword CSV
     csv_path = Path(KEYWORDS_CSV)
@@ -114,6 +122,8 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("Shutting down.")
+    _model = None
+    _tokenizer = None
     _keywords_df = None
 
 
@@ -222,41 +232,38 @@ def keyword_check(text: str) -> tuple[list[str], Optional[str]]:
     return matched_words, top_category
 
 
-async def run_inference_batch(texts: list[str]) -> list[tuple[str, float]]:
+def run_inference_batch(texts: list[str]) -> list[tuple[str, float]]:
     """
-    Call Hugging Face Serverless Inference API.
+    Tokenise all texts together and run a single batched forward pass.
+
     Returns list of (predicted_label, toxicity_score) tuples.
     """
-    hf_token = os.getenv("HF_TOKEN")
-    if not hf_token:
+    if _tokenizer is None or _model is None:
         raise HTTPException(
-            status_code=500,
-            detail="HF_TOKEN environment variable is not set.",
+            status_code=503,
+            detail="Model not loaded. Check MODEL_NAME configuration.",
         )
 
-    headers = {"Authorization": f"Bearer {hf_token}"}
-    payload = {"inputs": texts}
+    inputs = _tokenizer(
+        texts,
+        return_tensors="pt",
+        truncation=True,
+        max_length=512,
+        padding=True,
+    )
 
-    api_url = f"https://api-inference.huggingface.co/models/{MODEL_NAME}"
-    
-    async with httpx.AsyncClient() as client:
-        response = await client.post(api_url, headers=headers, json=payload, timeout=30.0)
+    with torch.no_grad():
+        logits = _model(**inputs).logits  # (batch, num_labels)
 
-    if response.status_code != 200:
-        logger.error("HF API Error: %s", response.text)
-        raise HTTPException(
-            status_code=502,
-            detail=f"Hugging Face API Error: {response.text}",
-        )
+    probs = torch.softmax(logits, dim=-1)  # (batch, num_labels)
 
-    # API returns list of lists (batch size x num labels)
-    results_json = response.json()
-    
+    id2label = getattr(_model.config, "id2label", None)
+    labels = [id2label[i] for i in range(len(id2label))] if id2label else LABELS
+
     results = []
-    for predictions in results_json:
-        best_pred = max(predictions, key=lambda x: x["score"])
-        results.append((best_pred["label"], float(best_pred["score"])))
-        
+    for row in probs:
+        idx = int(row.argmax())
+        results.append((labels[idx], float(row[idx])))
     return results
 
 
@@ -289,6 +296,7 @@ def build_response(
 async def root():
     return {
         "status": "ok",
+        "model_loaded": _model is not None,
         "keywords_loaded": _keywords_df is not None,
     }
 
@@ -298,6 +306,7 @@ async def health():
     return {
         "status": "ok",
         "model": MODEL_NAME,
+        "model_loaded": _model is not None,
         "keywords_count": len(_keywords_df) if _keywords_df is not None else 0,
         "labels": LABELS,
     }
@@ -310,8 +319,7 @@ async def predict(request: PredictRequest) -> PredictResponse:
     if not text:
         raise HTTPException(status_code=422, detail="Text is empty after cleaning.")
 
-    model_results = await run_inference_batch([text])
-    (predicted_category, toxicity_score) = model_results[0]
+    (predicted_category, toxicity_score) = run_inference_batch([text])[0]
     matched_words, keyword_category = keyword_check(text)
 
     response = build_response(predicted_category, toxicity_score, matched_words, keyword_category)
@@ -345,7 +353,7 @@ async def predict_batch(request: BatchPredictRequest) -> BatchPredictResponse:
         )
 
     # Single batched forward pass for all texts
-    model_results = await run_inference_batch(cleaned)
+    model_results = run_inference_batch(cleaned)
 
     # Apply keyword override per text
     responses = []

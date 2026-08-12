@@ -1,6 +1,7 @@
 # CPU-only PyTorch (keeps image small — no CUDA drivers needed)
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.6.0+cpu
+torchvision==0.21.0+cpu
 
 # Core
 fastapi>=0.111.0
@@ -23,6 +24,6 @@ httpx>=0.27.0          # async HTTP client for YouTube Data API calls
 # YouTube OAuth 2.0 — comment deletion as channel owner
 google-auth-oauthlib>=1.2.0   # OAuth flow + token handling
 google-auth>=2.29.0            # Google auth core
-google-api-python-client>=2.120.0
 itsdangerous>=2.2.0            # secure session signing
 starlette>=0.37.0              # SessionMiddleware (bundled with FastAPI)
+gradio>=4.0.

@@ -88,7 +88,6 @@ export default function LandingPage() {
   const [videoUrl, setVideoUrl] = useState("");
   const [showDashboard, setShowDashboard] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState("Analyzing...");
   const [error, setError] = useState<string | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisResponse | null>(null);
 
@@ -103,8 +102,7 @@ export default function LandingPage() {
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  const rawApiBase = ((import.meta as any).env?.VITE_API_URL) || "http://127.0.0.1:8000";
-  const API_BASE = rawApiBase.replace(/\/+$/, "");
+  const API_BASE = "http://127.0.0.1:8000";
 
   const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
@@ -178,45 +176,36 @@ export default function LandingPage() {
     if (videoUrl.trim() === "") return;
 
     setIsLoading(true);
-    setLoadingMsg("Analyzing...");
     setError(null);
     setShowDashboard(false);
 
-    // Show a hint after 5 s — Render free tier may be cold-starting
-    const wakeTimer = setTimeout(() => {
-      setLoadingMsg("Waking up server… this may take up to 30 s on first use.");
-    }, 5000);
-
     try {
-      const response = await fetch(`${API_BASE}/youtube/analyze`, {
+      const response = await fetch("http://127.0.0.1:8000/youtube/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ url: videoUrl.trim() }),
       });
 
       if (!response.ok) {
-        const detail = await response.json().catch(() => ({}));
-        throw new Error(detail?.detail || `Server returned ${response.status}. Please check the video URL.`);
+        throw new Error("Failed to analyze video. Please check the URL and ensure the API is running.");
       }
 
       const data: AnalysisResponse = await response.json();
       setAnalysisData(data);
       setShowDashboard(true);
-
+      
       setTimeout(() => {
         const element = document.getElementById("insights-panel");
-        if (element) element.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       }, 100);
     } catch (err: any) {
-      if (err instanceof TypeError && err.message.includes("fetch")) {
-        setError("Network error: Cannot reach the server. The server may still be waking up — please wait 30 seconds and try again.");
-      } else {
-        setError(err.message || "An unexpected error occurred.");
-      }
+      setError(err.message || "An unexpected error occurred.");
     } finally {
-      clearTimeout(wakeTimer);
       setIsLoading(false);
-      setLoadingMsg("Analyzing...");
     }
   };
 
@@ -410,7 +399,7 @@ export default function LandingPage() {
               </button>
             ) : (
               <a
-                href={`${API_BASE}/youtube/auth`}
+                href="http://127.0.0.1:8000/youtube/auth"
                 title="Connect your YouTube channel to enable comment deletion"
                 className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 px-4 py-2 rounded-full font-semibold text-xs transition duration-200"
               >
@@ -476,7 +465,7 @@ export default function LandingPage() {
                     className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:opacity-75 text-white px-7 py-3.5 rounded-full font-bold transition duration-200 text-sm md:text-base whitespace-nowrap flex items-center justify-center gap-2 shadow-md shadow-indigo-200"
                   >
                     {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {isLoading ? loadingMsg : "Analyze Comments"}
+                    {isLoading ? "Analyzing..." : "Analyze Comments"}
                   </button>
                 </div>
 
